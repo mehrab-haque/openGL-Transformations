@@ -14,6 +14,11 @@ double pi = 2*acos(0.0);
 double eyeX,eyeY,eyeZ,lookX,lookY,lookZ,upX,upY,upZ,fovY,aspectRatio,near,far;
 vector<vector<double>> transformationMatrix( 4 , vector<double> (4, 0));
 stack<vector<vector<double>>> transformationStates;
+vector<vector<vector<double>>> stage1Triangles;
+
+ifstream sceneFile;
+ofstream stage1File;
+ofstream stage2File;
 
 void initializeTransformationMatrix(){
     for(int i=0;i<4;i++)
@@ -76,6 +81,14 @@ vector<double> vectorScalarMultiple1D(vector<double>x, double m){
     return outputVector;
 }
 
+vector<double> getVector(double x,double y,double z){
+    vector<double> outputVector(3, 0);
+    outputVector[0]=x;
+    outputVector[1]=y;
+    outputVector[2]=z;
+    return outputVector;
+}
+
 double vectorDotMultiple1D(vector<double>v1, vector<double>v2){
     double sum=0;
     for(int i=0;i<v1.size();i++)
@@ -121,12 +134,7 @@ vector<double> rodriguesFunction(vector<double> x,vector<double> a, double theta
 }
 
 void takeInput(){
-    ifstream sceneFile;
-    ofstream stage1File;
-    sceneFile.open("Test Cases/4/scene.txt",ios::in); 
-    stage1File.open("outputs/4/stage1.txt"); 
-
-
+    
     if (sceneFile.is_open()){ 
         sceneFile>>eyeX>>eyeY>>eyeZ>>lookX>>lookY>>lookZ>>upX>>upY>>upZ>>fovY>>aspectRatio>>near>>far;
         string input;
@@ -138,7 +146,7 @@ void takeInput(){
                 for(int i=0;i<3;i++)
                     sceneFile>>triangleMatrix[0][i]>>triangleMatrix[1][i]>>triangleMatrix[2][i];
                 vector<vector<double>> transformedTriangleMatrix=transformTriangle(transformationStates.top(),triangleMatrix);
-                //viewTriangle(transformedTriangleMatrix);
+                stage1Triangles.push_back(transformedTriangleMatrix);
                 for(int i=0;i<3;i++)
                     stage1File<<fixed<<setprecision(7)<<transformedTriangleMatrix[0][i]<<"\t"<<transformedTriangleMatrix[1][i]<<"\t"<<transformedTriangleMatrix[2][i]<<endl;
                 stage1File<<endl;
@@ -202,10 +210,57 @@ void takeInput(){
     }
 }
 
+
+
+void executeStage2(){
+    vector<double> l=vectorAddition1D(getVector(lookX,lookY,lookZ),vectorScalarMultiple1D(getVector(eyeX,eyeY,eyeZ),-1));
+    l=getNormalizedVector1D(l);
+    vector<double> r=vectorCrossMultiple1D(l,getVector(upX,upY,upZ));
+    r=getNormalizedVector1D(r);
+    vector<double> u=vectorCrossMultiple1D(r,l);
+
+    vector<vector<double>> tMatrix( 4 , vector<double> (4, 0));
+    for(int i=0;i<4;i++)
+        tMatrix[i][i]=1;
+    tMatrix[0][3]=-eyeX;
+    tMatrix[1][3]=-eyeY;
+    tMatrix[2][3]=-eyeZ;
+
+    vector<vector<double>> rMatrix( 4 , vector<double> (4, 0));
+    for(int i=0;i<4;i++)
+        tMatrix[i][i]=1;
+    
+    for(int i=0;i<3;i++){
+        rMatrix[0][i]=r[i];
+        rMatrix[1][i]=u[i];
+        rMatrix[2][i]=-l[i];
+    }
+
+    vector<vector<double>> vMatrix=transformState(rMatrix,tMatrix);
+
+    for(int i=0;i<stage1Triangles.size();i++){
+        vector<vector<double>> transformedTriangleMatrix=transformTriangle(vMatrix,stage1Triangles[i]);
+        for(int i=0;i<3;i++)
+            stage2File<<fixed<<setprecision(7)<<transformedTriangleMatrix[0][i]<<"\t"<<transformedTriangleMatrix[1][i]<<"\t"<<transformedTriangleMatrix[2][i]<<endl;
+        stage2File<<endl;
+    }
+
+    stage2File.close(); 
+}
+
 int main(){
 
     initializeTransformationMatrix();
+
+    sceneFile.open("Test Cases/4/scene.txt",ios::in); 
+    stage1File.open("outputs/4/stage1.txt"); 
+    stage2File.open("outputs/4/stage2.txt");
+
+    //stage1
     takeInput();    
+
+    //stage2
+    executeStage2();
 
     return 0;
 }
