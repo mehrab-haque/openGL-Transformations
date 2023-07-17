@@ -12,7 +12,6 @@ using namespace std;
 double pi = 2*acos(0.0);
 
 double eyeX,eyeY,eyeZ,lookX,lookY,lookZ,upX,upY,upZ,fovY,aspectRatio,near,far;
-vector<vector<double>> transformationMatrix( 4 , vector<double> (4, 0));
 stack<vector<vector<double>>> transformationStates;
 vector<vector<vector<double>>> stage1Triangles,stage2Triangles;
 
@@ -21,11 +20,23 @@ ofstream stage1File;
 ofstream stage2File;
 ofstream stage3File;
 
-void initializeTransformationMatrix(){
-    for(int i=0;i<4;i++)
-        transformationMatrix[i][i]=1;
-    transformationStates.push(transformationMatrix);
+auto getMatrix(int nRows,int nCols,double initialValue){
+    vector<vector<double>> outputMatrix( nRows , vector<double> (nCols, initialValue));
+    return outputMatrix;
 }
+
+auto getVector(int size,double initialValue){
+    vector<double> outputVector( size , initialValue);
+    return outputVector;
+}
+
+auto getIdentityMatrix(int dim){
+    auto outputMatrix=getMatrix(dim,dim,0);
+    for(int i=0;i<dim;i++)
+        outputMatrix[i][i]=1;
+    return outputMatrix;
+}
+
 
 void viewTriangle(vector<vector<double>> triangleMatrix){
     for(int i=0;i<4;i++){
@@ -43,8 +54,8 @@ void viewTransformation(vector<vector<double>> transformationMatrix){
     }
 }
 
-vector<vector<double>> transform(vector<vector<double>>transformMatrix,vector<vector<double>> operandMatrix){
-    vector<vector<double>> outputMatrix( transformMatrix.size() , vector<double> (operandMatrix[0].size(), 1));
+auto transform(vector<vector<double>>transformMatrix,vector<vector<double>> operandMatrix){
+    auto outputMatrix=getMatrix(transformMatrix.size(),operandMatrix[0].size(),1);
     if(transformMatrix[0].size()==operandMatrix.size())
         for(int i=0;i<transformMatrix.size();i++)
             for(int j=0;j<operandMatrix[0].size();j++){
@@ -56,23 +67,23 @@ vector<vector<double>> transform(vector<vector<double>>transformMatrix,vector<ve
     return outputMatrix;
 }
 
-vector<vector<double>> copyTransformation(vector<vector<double>>state){
-    vector<vector<double>> outputMatrix( 4 , vector<double> (4, 1));
+auto copyTransformation(vector<vector<double>>state){
+    auto outputMatrix=getMatrix(4,4,0);
     for(int i=0;i<4;i++)
         for(int j=0;j<4;j++)
             outputMatrix[i][j]=state[i][j];
     return outputMatrix;
 }
 
-vector<double> vectorScalarMultiple1D(vector<double>x, double m){
-    vector<double> outputVector(x.size(), 0);
+auto vectorScalarMultiple1D(vector<double>x, double m){
+    auto outputVector=getVector(x.size(), 0);
     for(int i=0;i<x.size();i++)
         outputVector[i]=m*x[i];
     return outputVector;
 }
 
-vector<double> getVector(double x,double y,double z){
-    vector<double> outputVector(3, 0);
+auto getVector(double x,double y,double z){
+    auto outputVector=getVector(3, 0);
     outputVector[0]=x;
     outputVector[1]=y;
     outputVector[2]=z;
@@ -86,22 +97,22 @@ double vectorDotMultiple1D(vector<double>v1, vector<double>v2){
     return sum;
 }
 
-vector<double> vectorAddition1D(vector<double>v1, vector<double>v2){
-    vector<double> outputVector(v1.size(), 0);
+auto vectorAddition1D(vector<double>v1, vector<double>v2){
+    auto outputVector=getVector(v1.size(), 0);
     for(int i=0;i<v1.size();i++)
         outputVector[i]=v1[i]+v2[i];
     return outputVector;
 }
 
-vector<double> vectorCrossMultiple1D(vector<double>v1, vector<double>v2){
-    vector<double> outputVector(v1.size(), 0);
+auto vectorCrossMultiple1D(vector<double>v1, vector<double>v2){
+    auto outputVector=getVector(v1.size(), 0);
     outputVector[0]=v1[1]*v2[2]-v1[2]*v2[1];
     outputVector[1]=v1[2]*v2[0]-v1[0]*v2[2];
     outputVector[2]=v1[0]*v2[1]-v1[1]*v2[0];
     return outputVector;
 }
 
-vector<double> getNormalizedVector1D(vector<double>v){
+auto getNormalizedVector1D(vector<double> v){
     double squareSum=0;
     for(int i=0;i<v.size();i++)
         squareSum+=pow(v[i],2);
@@ -109,17 +120,17 @@ vector<double> getNormalizedVector1D(vector<double>v){
     return vectorScalarMultiple1D(v,1/value);
 }
 
-vector<double> getDirectionalVector(int direction){
-    vector<double> outputVector(3, 0);
+auto getDirectionalVector(int direction){
+    auto outputVector=getVector(3, 0);
     outputVector[direction]=1;
     return outputVector;
 }
 
 //𝑅(𝑥⃗, 𝑎⃗, 𝜃) = cos 𝜃 𝑥⃗ + (1 − cos 𝜃)(𝑎⃗ ∙ 𝑥⃗)𝑎⃗ + sin 𝜃 (𝑎⃗ × 𝑥⃗)
-vector<double> rodriguesFunction(vector<double> x,vector<double> a, double thetaRadian){
-    vector<double> t_1=vectorScalarMultiple1D(x,cos(thetaRadian));
-    vector<double> t_2=vectorScalarMultiple1D(a,(1-cos(thetaRadian))*vectorDotMultiple1D(a,x));
-    vector<double> t_3=vectorScalarMultiple1D(vectorCrossMultiple1D(a,x),sin(thetaRadian));
+auto rodriguesFunction(vector<double> x,vector<double> a, double thetaRadian){
+    auto t_1=vectorScalarMultiple1D(x,cos(thetaRadian));
+    auto t_2=vectorScalarMultiple1D(a,(1-cos(thetaRadian))*vectorDotMultiple1D(a,x));
+    auto t_3=vectorScalarMultiple1D(vectorCrossMultiple1D(a,x),sin(thetaRadian));
     return vectorAddition1D(t_1,vectorAddition1D(t_2,t_3));
 }
 
@@ -129,7 +140,7 @@ void writeTriangle(ofstream &file,vector<vector<double>> triangle){
         file<<endl;
 }
 
-void takeInput(){
+void takeInputAndStage1(){
     
     if (sceneFile.is_open()){ 
         sceneFile>>eyeX>>eyeY>>eyeZ>>lookX>>lookY>>lookZ>>upX>>upY>>upZ>>fovY>>aspectRatio>>near>>far;
@@ -138,34 +149,30 @@ void takeInput(){
             sceneFile>>input;
             if(input=="end")break;
             if(input=="triangle"){
-                vector<vector<double>> triangleMatrix( 4 , vector<double> (3, 1));
+                auto triangleMatrix=getMatrix(4,3,1);
                 for(int i=0;i<3;i++)
                     sceneFile>>triangleMatrix[0][i]>>triangleMatrix[1][i]>>triangleMatrix[2][i];
-                vector<vector<double>> transformedTriangleMatrix=transform(transformationStates.top(),triangleMatrix);
+                auto transformedTriangleMatrix=transform(transformationStates.top(),triangleMatrix);
                 stage1Triangles.push_back(transformedTriangleMatrix);
                 writeTriangle(stage1File,transformedTriangleMatrix);
             }else if(input=="translate"){
-                vector<vector<double>> translateMatrix( 4 , vector<double> (4, 0));
-                for(int i=0;i<4;i++)
-                    translateMatrix[i][i]=1;
+                auto translateMatrix=getIdentityMatrix(4);
                 for(int i=0;i<3;i++)
                     sceneFile>>translateMatrix[i][3];
-                vector<vector<double>> newTransformedMatrix=transform(transformationStates.top(),translateMatrix);
+                auto newTransformedMatrix=transform(transformationStates.top(),translateMatrix);
                 transformationStates.pop();
                 transformationStates.push(newTransformedMatrix);
             }
             else if(input=="scale"){
-                vector<vector<double>> scaleMatrix( 4 , vector<double> (4, 0));
-                for(int i=0;i<4;i++)
-                    scaleMatrix[i][i]=1;
+                auto scaleMatrix=getIdentityMatrix(4);
                 for(int i=0;i<3;i++)
                     sceneFile>>scaleMatrix[i][i];
-                vector<vector<double>> newTransformedMatrix=transform(transformationStates.top(),scaleMatrix);
+                auto newTransformedMatrix=transform(transformationStates.top(),scaleMatrix);
                 transformationStates.pop();
                 transformationStates.push(newTransformedMatrix);
             }
             else if(input=="rotate"){
-                vector<double> rotationVector( 3 , 0);
+                auto rotationVector=getVector( 3 , 0);
                 double angleDegree;
                 sceneFile>>angleDegree;
                 double angleRadian=angleDegree*pi/180.0;
@@ -173,13 +180,11 @@ void takeInput(){
                     sceneFile>>rotationVector[i];
                 
                 rotationVector=getNormalizedVector1D(rotationVector);
-                vector<double> c1=rodriguesFunction(getDirectionalVector(0),rotationVector,angleRadian);
-                vector<double> c2=rodriguesFunction(getDirectionalVector(1),rotationVector,angleRadian);
-                vector<double> c3=rodriguesFunction(getDirectionalVector(2),rotationVector,angleRadian);
+                auto c1=rodriguesFunction(getDirectionalVector(0),rotationVector,angleRadian);
+                auto c2=rodriguesFunction(getDirectionalVector(1),rotationVector,angleRadian);
+                auto c3=rodriguesFunction(getDirectionalVector(2),rotationVector,angleRadian);
 
-                vector<vector<double>> rotationMatrix( 4 , vector<double> (4, 0));
-                for(int i=0;i<4;i++)
-                    rotationMatrix[i][i]=1;
+                auto rotationMatrix=getIdentityMatrix(4);
 
                 for(int i=0;i<3;i++){
                     rotationMatrix[i][0]=c1[i];
@@ -187,12 +192,12 @@ void takeInput(){
                     rotationMatrix[i][2]=c3[i];
                 }
 
-                vector<vector<double>> newTransformedMatrix=transform(transformationStates.top(),rotationMatrix);
+                auto newTransformedMatrix=transform(transformationStates.top(),rotationMatrix);
                 transformationStates.pop();
                 transformationStates.push(newTransformedMatrix);
             }
             else if(input=="push"){
-                vector<vector<double>> newTransformedMatrix=copyTransformation(transformationStates.top());
+                auto newTransformedMatrix=copyTransformation(transformationStates.top());
                 transformationStates.push(newTransformedMatrix);
             }
             else if(input=="pop")
@@ -205,23 +210,19 @@ void takeInput(){
 }
 
 void executeStage2(){
-    vector<double> l=vectorAddition1D(getVector(lookX,lookY,lookZ),vectorScalarMultiple1D(getVector(eyeX,eyeY,eyeZ),-1));
+    auto l=vectorAddition1D(getVector(lookX,lookY,lookZ),vectorScalarMultiple1D(getVector(eyeX,eyeY,eyeZ),-1));
     l=getNormalizedVector1D(l);
-    vector<double> r=vectorCrossMultiple1D(l,getVector(upX,upY,upZ));
+    auto r=vectorCrossMultiple1D(l,getVector(upX,upY,upZ));
     r=getNormalizedVector1D(r);
-    vector<double> u=vectorCrossMultiple1D(r,l);
+    auto u=vectorCrossMultiple1D(r,l);
 
-    vector<vector<double>> tMatrix( 4 , vector<double> (4, 0));
-    for(int i=0;i<4;i++)
-        tMatrix[i][i]=1;
+    auto tMatrix=getIdentityMatrix(4);
 
     tMatrix[0][3]=-eyeX;
     tMatrix[1][3]=-eyeY;
     tMatrix[2][3]=-eyeZ;
 
-    vector<vector<double>> rMatrix( 4 , vector<double> (4, 0));
-    for(int i=0;i<4;i++)
-        tMatrix[i][i]=1;
+    auto rMatrix=getIdentityMatrix(4);
     
     for(int i=0;i<3;i++){
         rMatrix[0][i]=r[i];
@@ -229,10 +230,10 @@ void executeStage2(){
         rMatrix[2][i]=-l[i];
     }
 
-    vector<vector<double>> vMatrix=transform(rMatrix,tMatrix);
+    auto vMatrix=transform(rMatrix,tMatrix);
 
     for(int i=0;i<stage1Triangles.size();i++){
-        vector<vector<double>> transformedTriangleMatrix=transform(vMatrix,stage1Triangles[i]);
+        auto transformedTriangleMatrix=transform(vMatrix,stage1Triangles[i]);
         stage2Triangles.push_back(transformedTriangleMatrix);
         writeTriangle(stage2File,transformedTriangleMatrix);
     }
@@ -246,7 +247,7 @@ void executeStage3(){
     double t=near*tan(fovY/2);
     double r=near*tan(fovX/2);
 
-    vector<vector<double>> pMatrix( 4 , vector<double> (4, 0));
+    auto pMatrix=getMatrix(4,4,0);
     pMatrix[0][0]=near/r;
     pMatrix[1][1]=near/t;
     pMatrix[2][2]=-(far+near)/(far-near);
@@ -256,7 +257,7 @@ void executeStage3(){
     // viewTransformation(pMatrix);
 
     for(int i=0;i<stage2Triangles.size();i++){
-        vector<vector<double>> transformedTriangleMatrix=transform(pMatrix,stage2Triangles[i]);
+        auto transformedTriangleMatrix=transform(pMatrix,stage2Triangles[i]);
         //stage2Triangles.push_back(transformedTriangleMatrix);
         writeTriangle(stage3File,transformedTriangleMatrix);
     }
@@ -268,7 +269,8 @@ void executeStage3(){
 
 int main(){
 
-    initializeTransformationMatrix();
+
+    transformationStates.push(getIdentityMatrix(4));
 
     sceneFile.open("Test Cases/1/scene.txt",ios::in); 
     stage1File.open("outputs/1/stage1.txt"); 
@@ -276,7 +278,7 @@ int main(){
     stage3File.open("outputs/1/stage3.txt");
 
     //stage1
-    takeInput();    
+    takeInputAndStage1();    
 
     //stage2
     executeStage2();
