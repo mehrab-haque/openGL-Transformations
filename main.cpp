@@ -14,11 +14,12 @@ double pi = 2*acos(0.0);
 double eyeX,eyeY,eyeZ,lookX,lookY,lookZ,upX,upY,upZ,fovY,aspectRatio,near,far;
 vector<vector<double>> transformationMatrix( 4 , vector<double> (4, 0));
 stack<vector<vector<double>>> transformationStates;
-vector<vector<vector<double>>> stage1Triangles;
+vector<vector<vector<double>>> stage1Triangles,stage2Triangles;
 
 ifstream sceneFile;
 ofstream stage1File;
 ofstream stage2File;
+ofstream stage3File;
 
 void initializeTransformationMatrix(){
     for(int i=0;i<4;i++)
@@ -240,12 +241,41 @@ void executeStage2(){
 
     for(int i=0;i<stage1Triangles.size();i++){
         vector<vector<double>> transformedTriangleMatrix=transformTriangle(vMatrix,stage1Triangles[i]);
+        stage2Triangles.push_back(transformedTriangleMatrix);
         for(int i=0;i<3;i++)
             stage2File<<fixed<<setprecision(7)<<transformedTriangleMatrix[0][i]<<"\t"<<transformedTriangleMatrix[1][i]<<"\t"<<transformedTriangleMatrix[2][i]<<endl;
         stage2File<<endl;
     }
 
     stage2File.close(); 
+}
+
+
+void executeStage3(){
+    double fovX=fovY*aspectRatio;
+    double t=near*tan(fovY/2);
+    double r=near*tan(fovX/2);
+
+    vector<vector<double>> pMatrix( 4 , vector<double> (4, 0));
+    pMatrix[0][0]=near/r;
+    pMatrix[1][1]=near/t;
+    pMatrix[2][2]=-(far+near)/(far-near);
+    pMatrix[2][3]=-2*far*near/(far-near);
+    pMatrix[3][2]=-1;
+
+    viewTransformation(pMatrix);
+
+    for(int i=0;i<stage2Triangles.size();i++){
+        vector<vector<double>> transformedTriangleMatrix=transformTriangle(pMatrix,stage2Triangles[i]);
+        //stage2Triangles.push_back(transformedTriangleMatrix);
+        for(int i=0;i<3;i++)
+            stage3File<<fixed<<setprecision(7)<<transformedTriangleMatrix[0][i]<<"\t"<<transformedTriangleMatrix[1][i]<<"\t"<<transformedTriangleMatrix[2][i]<<endl;
+        stage3File<<endl;
+    }
+
+    stage3File.close(); 
+
+
 }
 
 int main(){
@@ -255,12 +285,16 @@ int main(){
     sceneFile.open("Test Cases/4/scene.txt",ios::in); 
     stage1File.open("outputs/4/stage1.txt"); 
     stage2File.open("outputs/4/stage2.txt");
+    stage3File.open("outputs/4/stage3.txt");
 
     //stage1
     takeInput();    
 
     //stage2
     executeStage2();
+
+    //stage3
+    executeStage3();
 
     return 0;
 }
