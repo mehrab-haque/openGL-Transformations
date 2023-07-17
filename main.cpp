@@ -68,9 +68,9 @@ auto transform(vector<vector<double>>transformMatrix,vector<vector<double>> oper
 }
 
 auto copyTransformation(vector<vector<double>>state){
-    auto outputMatrix=getMatrix(4,4,0);
-    for(int i=0;i<4;i++)
-        for(int j=0;j<4;j++)
+    auto outputMatrix=getMatrix(state.size(),state[0].size(),0);
+    for(int i=0;i<state.size();i++)
+        for(int j=0;j<state[0].size();j++)
             outputMatrix[i][j]=state[i][j];
     return outputMatrix;
 }
@@ -140,6 +140,11 @@ void writeTriangle(ofstream &file,vector<vector<double>> triangle){
         file<<endl;
 }
 
+void updateTransformation(vector<vector<double>> transformationMatrix){
+    transformationStates.pop();
+    transformationStates.push(transformationMatrix);
+}
+
 void takeInputAndStage1(){
     
     if (sceneFile.is_open()){ 
@@ -160,16 +165,14 @@ void takeInputAndStage1(){
                 for(int i=0;i<3;i++)
                     sceneFile>>translateMatrix[i][3];
                 auto newTransformedMatrix=transform(transformationStates.top(),translateMatrix);
-                transformationStates.pop();
-                transformationStates.push(newTransformedMatrix);
+                updateTransformation(newTransformedMatrix);
             }
             else if(input=="scale"){
                 auto scaleMatrix=getIdentityMatrix(4);
                 for(int i=0;i<3;i++)
                     sceneFile>>scaleMatrix[i][i];
                 auto newTransformedMatrix=transform(transformationStates.top(),scaleMatrix);
-                transformationStates.pop();
-                transformationStates.push(newTransformedMatrix);
+                updateTransformation(newTransformedMatrix);
             }
             else if(input=="rotate"){
                 auto rotationVector=getVector( 3 , 0);
@@ -193,8 +196,7 @@ void takeInputAndStage1(){
                 }
 
                 auto newTransformedMatrix=transform(transformationStates.top(),rotationMatrix);
-                transformationStates.pop();
-                transformationStates.push(newTransformedMatrix);
+                updateTransformation(newTransformedMatrix);
             }
             else if(input=="push"){
                 auto newTransformedMatrix=copyTransformation(transformationStates.top());
