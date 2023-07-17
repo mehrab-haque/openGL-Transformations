@@ -43,27 +43,16 @@ void viewTransformation(vector<vector<double>> transformationMatrix){
     }
 }
 
-vector<vector<double>> transformTriangle(vector<vector<double>>transformMatrix,vector<vector<double>> triangleMatrix){
-    vector<vector<double>> outputMatrix( 4 , vector<double> (3, 1));
-    for(int i=0;i<4;i++)
-        for(int j=0;j<3;j++){
-            double sum=0;
-            for(int k=0;k<4;k++)
-                sum+=transformMatrix[i][k]*triangleMatrix[k][j];
-            outputMatrix[i][j]=sum;
-        }
-    return outputMatrix;
-}
-
-vector<vector<double>> transformState(vector<vector<double>>state1,vector<vector<double>> state2){
-    vector<vector<double>> outputMatrix( 4 , vector<double> (4, 1));
-    for(int i=0;i<4;i++)
-        for(int j=0;j<4;j++){
-            double sum=0;
-            for(int k=0;k<4;k++)
-                sum+=state1[i][k]*state2[k][j];
-            outputMatrix[i][j]=sum;
-        }
+vector<vector<double>> transform(vector<vector<double>>transformMatrix,vector<vector<double>> operandMatrix){
+    vector<vector<double>> outputMatrix( transformMatrix.size() , vector<double> (operandMatrix[0].size(), 1));
+    if(transformMatrix[0].size()==operandMatrix.size())
+        for(int i=0;i<transformMatrix.size();i++)
+            for(int j=0;j<operandMatrix[0].size();j++){
+                double sum=0;
+                for(int k=0;k<operandMatrix.size();k++)
+                    sum+=transformMatrix[i][k]*operandMatrix[k][j];
+                outputMatrix[i][j]=sum;
+            }
     return outputMatrix;
 }
 
@@ -134,6 +123,12 @@ vector<double> rodriguesFunction(vector<double> x,vector<double> a, double theta
     return vectorAddition1D(t_1,vectorAddition1D(t_2,t_3));
 }
 
+void writeTriangle(ofstream &file,vector<vector<double>> triangle){
+        for(int i=0;i<3;i++)
+            file<<fixed<<setprecision(7)<<triangle[0][i]<<"\t"<<triangle[1][i]<<"\t"<<triangle[2][i]<<endl;
+        file<<endl;
+}
+
 void takeInput(){
     
     if (sceneFile.is_open()){ 
@@ -146,18 +141,16 @@ void takeInput(){
                 vector<vector<double>> triangleMatrix( 4 , vector<double> (3, 1));
                 for(int i=0;i<3;i++)
                     sceneFile>>triangleMatrix[0][i]>>triangleMatrix[1][i]>>triangleMatrix[2][i];
-                vector<vector<double>> transformedTriangleMatrix=transformTriangle(transformationStates.top(),triangleMatrix);
+                vector<vector<double>> transformedTriangleMatrix=transform(transformationStates.top(),triangleMatrix);
                 stage1Triangles.push_back(transformedTriangleMatrix);
-                for(int i=0;i<3;i++)
-                    stage1File<<fixed<<setprecision(7)<<transformedTriangleMatrix[0][i]<<"\t"<<transformedTriangleMatrix[1][i]<<"\t"<<transformedTriangleMatrix[2][i]<<endl;
-                stage1File<<endl;
+                writeTriangle(stage1File,transformedTriangleMatrix);
             }else if(input=="translate"){
                 vector<vector<double>> translateMatrix( 4 , vector<double> (4, 0));
                 for(int i=0;i<4;i++)
                     translateMatrix[i][i]=1;
                 for(int i=0;i<3;i++)
                     sceneFile>>translateMatrix[i][3];
-                vector<vector<double>> newTransformedMatrix=transformState(transformationStates.top(),translateMatrix);
+                vector<vector<double>> newTransformedMatrix=transform(transformationStates.top(),translateMatrix);
                 transformationStates.pop();
                 transformationStates.push(newTransformedMatrix);
             }
@@ -167,7 +160,7 @@ void takeInput(){
                     scaleMatrix[i][i]=1;
                 for(int i=0;i<3;i++)
                     sceneFile>>scaleMatrix[i][i];
-                vector<vector<double>> newTransformedMatrix=transformState(transformationStates.top(),scaleMatrix);
+                vector<vector<double>> newTransformedMatrix=transform(transformationStates.top(),scaleMatrix);
                 transformationStates.pop();
                 transformationStates.push(newTransformedMatrix);
             }
@@ -194,7 +187,7 @@ void takeInput(){
                     rotationMatrix[i][2]=c3[i];
                 }
 
-                vector<vector<double>> newTransformedMatrix=transformState(transformationStates.top(),rotationMatrix);
+                vector<vector<double>> newTransformedMatrix=transform(transformationStates.top(),rotationMatrix);
                 transformationStates.pop();
                 transformationStates.push(newTransformedMatrix);
             }
@@ -211,8 +204,6 @@ void takeInput(){
     }
 }
 
-
-
 void executeStage2(){
     vector<double> l=vectorAddition1D(getVector(lookX,lookY,lookZ),vectorScalarMultiple1D(getVector(eyeX,eyeY,eyeZ),-1));
     l=getNormalizedVector1D(l);
@@ -223,6 +214,7 @@ void executeStage2(){
     vector<vector<double>> tMatrix( 4 , vector<double> (4, 0));
     for(int i=0;i<4;i++)
         tMatrix[i][i]=1;
+
     tMatrix[0][3]=-eyeX;
     tMatrix[1][3]=-eyeY;
     tMatrix[2][3]=-eyeZ;
@@ -237,14 +229,12 @@ void executeStage2(){
         rMatrix[2][i]=-l[i];
     }
 
-    vector<vector<double>> vMatrix=transformState(rMatrix,tMatrix);
+    vector<vector<double>> vMatrix=transform(rMatrix,tMatrix);
 
     for(int i=0;i<stage1Triangles.size();i++){
-        vector<vector<double>> transformedTriangleMatrix=transformTriangle(vMatrix,stage1Triangles[i]);
+        vector<vector<double>> transformedTriangleMatrix=transform(vMatrix,stage1Triangles[i]);
         stage2Triangles.push_back(transformedTriangleMatrix);
-        for(int i=0;i<3;i++)
-            stage2File<<fixed<<setprecision(7)<<transformedTriangleMatrix[0][i]<<"\t"<<transformedTriangleMatrix[1][i]<<"\t"<<transformedTriangleMatrix[2][i]<<endl;
-        stage2File<<endl;
+        writeTriangle(stage2File,transformedTriangleMatrix);
     }
 
     stage2File.close(); 
@@ -263,14 +253,12 @@ void executeStage3(){
     pMatrix[2][3]=-2*far*near/(far-near);
     pMatrix[3][2]=-1;
 
-    viewTransformation(pMatrix);
+    // viewTransformation(pMatrix);
 
     for(int i=0;i<stage2Triangles.size();i++){
-        vector<vector<double>> transformedTriangleMatrix=transformTriangle(pMatrix,stage2Triangles[i]);
+        vector<vector<double>> transformedTriangleMatrix=transform(pMatrix,stage2Triangles[i]);
         //stage2Triangles.push_back(transformedTriangleMatrix);
-        for(int i=0;i<3;i++)
-            stage3File<<fixed<<setprecision(7)<<transformedTriangleMatrix[0][i]<<"\t"<<transformedTriangleMatrix[1][i]<<"\t"<<transformedTriangleMatrix[2][i]<<endl;
-        stage3File<<endl;
+        writeTriangle(stage3File,transformedTriangleMatrix);
     }
 
     stage3File.close(); 
@@ -282,10 +270,10 @@ int main(){
 
     initializeTransformationMatrix();
 
-    sceneFile.open("Test Cases/4/scene.txt",ios::in); 
-    stage1File.open("outputs/4/stage1.txt"); 
-    stage2File.open("outputs/4/stage2.txt");
-    stage3File.open("outputs/4/stage3.txt");
+    sceneFile.open("Test Cases/1/scene.txt",ios::in); 
+    stage1File.open("outputs/1/stage1.txt"); 
+    stage2File.open("outputs/1/stage2.txt");
+    stage3File.open("outputs/1/stage3.txt");
 
     //stage1
     takeInput();    
