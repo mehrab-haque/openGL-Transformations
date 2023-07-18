@@ -38,18 +38,10 @@ auto getIdentityMatrix(int dim){
 }
 
 
-void viewTriangle(vector<vector<double>> triangleMatrix){
-    for(int i=0;i<4;i++){
-        for(int j=0;j<3;j++)
-            cout<<fixed<<setprecision(7)<<triangleMatrix[i][j]<<"\t";
-        cout<<endl;
-    }
-}
-
-void viewTransformation(vector<vector<double>> transformationMatrix){
-    for(int i=0;i<4;i++){
-        for(int j=0;j<4;j++)
-            cout<<fixed<<setprecision(7)<<transformationMatrix[i][j]<<"\t";
+void view(vector<vector<double>> matrix){
+    for(int i=0;i<matrix.size();i++){
+        for(int j=0;j<matrix[0].size();j++)
+            cout<<fixed<<setprecision(7)<<matrix[i][j]<<"\t";
         cout<<endl;
     }
 }
@@ -67,7 +59,7 @@ auto transform(vector<vector<double>>transformMatrix,vector<vector<double>> oper
     return outputMatrix;
 }
 
-auto copyTransformation(vector<vector<double>>state){
+auto copyMatrix(vector<vector<double>>state){
     auto outputMatrix=getMatrix(state.size(),state[0].size(),0);
     for(int i=0;i<state.size();i++)
         for(int j=0;j<state[0].size();j++)
@@ -81,6 +73,15 @@ auto vectorScalarMultiple1D(vector<double>x, double m){
         outputVector[i]=m*x[i];
     return outputVector;
 }
+
+auto matrixScalarMultiple(vector<vector<double>>matrix, double m){
+    auto outputVector=copyMatrix(matrix);
+    for(int i=0;i<matrix.size();i++)
+        for(int j=0;j<matrix[0].size();j++)
+            outputVector[i][j]*=m;
+    return outputVector;
+}
+
 
 auto getVector(double x,double y,double z){
     auto outputVector=getVector(3, 0);
@@ -136,13 +137,17 @@ auto rodriguesFunction(vector<double> x,vector<double> a, double thetaRadian){
 
 void writeTriangle(ofstream &file,vector<vector<double>> triangle){
         for(int i=0;i<3;i++)
-            file<<fixed<<setprecision(7)<<triangle[0][i]<<"\t"<<triangle[1][i]<<"\t"<<triangle[2][i]<<endl;
+            file<<fixed<<setprecision(7)<<triangle[0][i]<<" "<<triangle[1][i]<<" "<<triangle[2][i]<<endl;
         file<<endl;
 }
 
 void updateTransformation(vector<vector<double>> transformationMatrix){
     transformationStates.pop();
     transformationStates.push(transformationMatrix);
+}
+
+auto scaleToIdentityWeight(vector<vector<double>> points){
+    return matrixScalarMultiple(points,1/points[3][0]);
 }
 
 void takeInputAndStage1(){
@@ -157,7 +162,7 @@ void takeInputAndStage1(){
                 auto triangleMatrix=getMatrix(4,3,1);
                 for(int i=0;i<3;i++)
                     sceneFile>>triangleMatrix[0][i]>>triangleMatrix[1][i]>>triangleMatrix[2][i];
-                auto transformedTriangleMatrix=transform(transformationStates.top(),triangleMatrix);
+                auto transformedTriangleMatrix=scaleToIdentityWeight(transform(transformationStates.top(),triangleMatrix));
                 stage1Triangles.push_back(transformedTriangleMatrix);
                 writeTriangle(stage1File,transformedTriangleMatrix);
             }else if(input=="translate"){
@@ -199,7 +204,7 @@ void takeInputAndStage1(){
                 updateTransformation(newTransformedMatrix);
             }
             else if(input=="push"){
-                auto newTransformedMatrix=copyTransformation(transformationStates.top());
+                auto newTransformedMatrix=copyMatrix(transformationStates.top());
                 transformationStates.push(newTransformedMatrix);
             }
             else if(input=="pop")
@@ -233,51 +238,39 @@ void executeStage2(){
     }
 
     auto vMatrix=transform(rMatrix,tMatrix);
-
+    
     for(int i=0;i<stage1Triangles.size();i++){
-        auto transformedTriangleMatrix=transform(vMatrix,stage1Triangles[i]);
+        auto transformedTriangleMatrix=scaleToIdentityWeight(transform(vMatrix,stage1Triangles[i]));
         stage2Triangles.push_back(transformedTriangleMatrix);
         writeTriangle(stage2File,transformedTriangleMatrix);
     }
-
     stage2File.close(); 
 }
 
 
 void executeStage3(){
     double fovX=fovY*aspectRatio;
-    double t=near*tan(fovY/2);
-    double r=near*tan(fovX/2);
-
+    double t=near*tan(fovY*pi/360);
+    double r=near*tan(fovX*pi/360);
     auto pMatrix=getMatrix(4,4,0);
     pMatrix[0][0]=near/r;
     pMatrix[1][1]=near/t;
     pMatrix[2][2]=-(far+near)/(far-near);
     pMatrix[2][3]=-2*far*near/(far-near);
     pMatrix[3][2]=-1;
-
-    // viewTransformation(pMatrix);
-
     for(int i=0;i<stage2Triangles.size();i++){
-        auto transformedTriangleMatrix=transform(pMatrix,stage2Triangles[i]);
-        //stage2Triangles.push_back(transformedTriangleMatrix);
+        auto transformedTriangleMatrix=scaleToIdentityWeight(transform(pMatrix,stage2Triangles[i]));
         writeTriangle(stage3File,transformedTriangleMatrix);
     }
-
     stage3File.close(); 
-
-
 }
 
 int main(){
-
-
     transformationStates.push(getIdentityMatrix(4));
-
-    sceneFile.open("Test Cases/1/scene.txt",ios::in); 
-    stage1File.open("outputs/1/stage1.txt"); 
-    stage2File.open("outputs/1/stage2.txt");
-    stage3File.open("outputs/1/stage3.txt");
+    sceneFile.open("Test Cases/2/scene.txt",ios::in); 
+    stage1File.open("outputs/2/stage1.txt"); 
+    stage2File.open("outputs/2/stage2.txt");
+    stage3File.open("outputs/2/stage3.txt");
 
     //stage1
     takeInputAndStage1();    
